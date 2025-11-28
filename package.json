@@ -1,0 +1,23 @@
+{
+  "name": "voonex",
+  "version": "0.1.0",
+  "description": "A zero-dependency Terminal UI Library for Node.js.",
+  "license": "MIT",
+  "author": "CodeTease",
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "start": "ts-node examples/demo.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "ts-node": "10.9.2",
+    "@types/node": "20.4.2"
+  },
+  "files": [
+    "dist"
+  ]
+}
