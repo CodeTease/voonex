@@ -1,7 +1,10 @@
 import { Styler, ColorName } from '../core/Styler';
 import { Screen } from '../core/Screen';
+import { Focusable } from '../core/Focus';
+import * as readline from 'readline';
 
 export interface BoxOptions {
+    id?: string; // New: Optional for static render, but useful if instantiated
     x?: number;
     y?: number;
     width?: number;
@@ -10,7 +13,8 @@ export interface BoxOptions {
     borderColor?: ColorName;
     title?: string;
     style?: 'single' | 'double' | 'round';
-    fill?: boolean; // New: Defaults to true usually
+    scrollable?: boolean;
+    wrap?: boolean;
 }
 
 const BORDERS = {
@@ -19,28 +23,161 @@ const BORDERS = {
     round:  { tl: '╭', tr: '╮', bl: '╰', br: '╯', h: '─', v: '│' }
 };
 
-export class Box {
-    static render(content: string | string[], options: BoxOptions = {}) {
-        const lines = Array.isArray(content) ? content : content.split('\n');
-        const pad = options.padding || 1;
-        const style = BORDERS[options.style || 'round'];
-        const color = options.borderColor || 'white';
-        const startX = options.x || 1;
-        const startY = options.y || 1;
+export class Box implements Focusable {
+    public id: string;
+    private options: BoxOptions;
+    private content: string[];
+    private processedLines: string[] = [];
+    private scrollTop: number = 0;
+    private isFocused: boolean = false;
 
-        // Auto-calculate width if not provided
-        const contentMaxWidth = Math.max(...lines.map(l => Styler.len(l)));
-        const boxWidth = options.width || (contentMaxWidth + (pad * 2) + 2);
-        const innerWidth = boxWidth - 2;
+    constructor(content: string | string[], options: BoxOptions = {}) {
+        this.id = options.id || `box-${Math.random().toString(36).substr(2, 9)}`;
+        this.options = {
+            padding: 1,
+            style: 'round',
+            borderColor: 'white',
+            scrollable: false,
+            wrap: false,
+            x: 1,
+            y: 1,
+            ...options
+        };
+        this.content = Array.isArray(content) ? content : content.split('\n');
+        this.calculateDimensions();
+        this.processContent();
+    }
 
-        // Auto-calculate height if not provided
-        const boxHeight = options.height || (lines.length + (pad * 2) + 2);
-        const innerHeight = boxHeight - 2;
+    private calculateDimensions() {
+        const { padding } = this.options;
+        const pad = padding || 1;
+
+        // If width/height not provided, calculate from content
+        if (!this.options.width) {
+            const contentMaxWidth = Math.max(...this.content.map(l => Styler.len(l)));
+            this.options.width = contentMaxWidth + (pad * 2) + 2;
+        }
+
+        if (!this.options.height) {
+            this.options.height = this.content.length + (pad * 2) + 2;
+        }
+    }
+
+    private processContent() {
+        const { width, padding, wrap } = this.options;
+        const pad = padding || 1;
+        const innerWidth = (width || 0) - 2 - (pad * 2);
+
+        if (wrap) {
+            this.processedLines = [];
+            for (const line of this.content) {
+                if (Styler.len(line) <= innerWidth) {
+                    this.processedLines.push(line);
+                } else {
+                    // Simple wrap logic
+                    let currentLine = line;
+                    while (Styler.len(currentLine) > innerWidth) {
+                         // Find split point
+                         // Note: This is a simple char split. Ideally split by words.
+                         // But Styler.len handles ansi codes, so slicing directly is dangerous if codes exist.
+                         // For now, assuming plain text or handled simply.
+                         // Improving this requires a smarter wrapper that respects ANSI codes.
+                         // Let's implement a basic word wrapper.
+                         
+                         const wrapped = this.wrapLine(currentLine, innerWidth);
+                         this.processedLines.push(wrapped.head);
+                         currentLine = wrapped.tail;
+                    }
+                    if (currentLine) this.processedLines.push(currentLine);
+                }
+            }
+        } else {
+            this.processedLines = this.content;
+        }
+    }
+
+    private wrapLine(line: string, width: number): { head: string, tail: string } {
+        // This is a naive implementation. 
+        // Real implementation should respect ANSI codes and word boundaries.
+        // Assuming plain text for simplicity in this iteration or stripped text.
+        
+        // Find last space before width
+        const raw = line; // Should handle Styler.strip if we want strict length check
+        
+        if (raw.length <= width) return { head: raw, tail: '' };
+        
+        let splitIdx = raw.lastIndexOf(' ', width);
+        if (splitIdx === -1) splitIdx = width; // Force split if no space
+        
+        return {
+            head: raw.substring(0, splitIdx),
+            tail: raw.substring(splitIdx).trimStart()
+        };
+    }
+
+    focus() {
+        this.isFocused = true;
+        this.render(); // Re-render to show focus indicator (border color change?)
+    }
+
+    blur() {
+        this.isFocused = false;
+        this.render();
+    }
+
+    handleKey(key: readline.Key): boolean {
+        if (!this.options.scrollable) return false;
+
+        const { height, padding } = this.options;
+        const pad = padding || 1;
+        const innerHeight = (height || 0) - 2 - (pad * 2);
+        const maxScroll = Math.max(0, this.processedLines.length - innerHeight);
+
+        let consumed = false;
+
+        if (key.name === 'up') {
+            if (this.scrollTop > 0) {
+                this.scrollTop--;
+                consumed = true;
+            }
+        } else if (key.name === 'down') {
+            if (this.scrollTop < maxScroll) {
+                this.scrollTop++;
+                consumed = true;
+            }
+        } else if (key.name === 'pageup') {
+            this.scrollTop = Math.max(0, this.scrollTop - innerHeight);
+            consumed = true;
+        } else if (key.name === 'pagedown') {
+             this.scrollTop = Math.min(maxScroll, this.scrollTop + innerHeight);
+             consumed = true;
+        }
+
+        if (consumed) {
+            this.render();
+            return true;
+        }
+        return false;
+    }
+
+    render() {
+        const { x, y, width, height, padding, title, style: borderStyle, borderColor, scrollable } = this.options;
+        const style = BORDERS[borderStyle || 'round'];
+        // Use bright color if focused
+        const color = this.isFocused ? 'brightCyan' : (borderColor || 'white');
+        
+        const startX = x || 1;
+        const startY = y || 1;
+        const pad = padding || 1;
+        
+        const innerWidth = (width || 0) - 2;
+        const innerHeight = (height || 0) - 2;
+        const contentHeight = innerHeight - (pad * 2);
 
         // 1. Draw Top Border
         let topBorder = style.tl + style.h.repeat(innerWidth) + style.tr;
-        if (options.title) {
-            const titleStr = ` ${options.title} `;
+        if (title) {
+            const titleStr = ` ${title} `;
             const leftLen = Math.floor((innerWidth - titleStr.length) / 2);
             const rightLen = innerWidth - leftLen - titleStr.length;
             
@@ -50,31 +187,72 @@ export class Box {
         }
         Screen.write(startX, startY, Styler.style(topBorder, color));
 
-        // 2. Draw Content Body (With FILL logic)
+        // 2. Draw Content Body
         for (let i = 0; i < innerHeight; i++) {
-            const contentIndex = i - pad;
+            // Check if we are in padding zone or content zone
+            // Padding is applied at top and bottom inside the box?
+            // Usually padding is around content.
+            // Let's assume uniform padding for simplicity in calculation, 
+            // but here we iterate lines.
+            
             let lineContent = "";
-
-            if (contentIndex >= 0 && contentIndex < lines.length) {
-                lineContent = lines[contentIndex];
+            
+            if (i >= pad && i < innerHeight - pad) {
+                const contentIndex = (i - pad) + this.scrollTop;
+                if (contentIndex < this.processedLines.length) {
+                    lineContent = this.processedLines[contentIndex];
+                }
             }
 
             const rawLen = Styler.len(lineContent);
-            const remainingSpace = innerWidth - rawLen - pad;
+            // Ensure we don't overflow horizontally even if wrap failed or wasn't on
+            if (rawLen > innerWidth - (pad * 2)) {
+                lineContent = lineContent.substring(0, innerWidth - (pad * 2));
+            }
+
+            const remainingSpace = innerWidth - Styler.len(lineContent) - (pad * 2); // left pad + right pad
+            const rowString = ' '.repeat(pad) + lineContent + ' '.repeat(Math.max(0, remainingSpace)) + ' '.repeat(pad);
             
-            // CRITICAL FIX: Construct a full string of length 'innerWidth'
-            // Padding Left + Content + Padding Right
-            // We use spaces to overwrite anything underneath (Opaque effect)
-            const rowString = ' '.repeat(pad) + lineContent + ' '.repeat(Math.max(0, remainingSpace));
-            
-            // Trim or pad slightly if math is off by 1 char due to odd/even widths
+            // Trim/Pad to exact innerWidth
             const safeRowString = rowString.padEnd(innerWidth).substring(0, innerWidth);
 
-            const row = `${style.v}${safeRowString}${style.v}`;
+            let rightBorder = style.v;
+            // Scrollbar logic
+            if (scrollable) {
+                const maxScroll = Math.max(0, this.processedLines.length - contentHeight);
+                if (maxScroll > 0) {
+                     // Calculate scrollbar position
+                     const scrollbarHeight = Math.max(1, Math.floor((contentHeight / this.processedLines.length) * contentHeight));
+                     const scrollPercent = this.scrollTop / maxScroll;
+                     const scrollPos = Math.floor(scrollPercent * (contentHeight - scrollbarHeight));
+                     
+                     // Are we in the scrollbar zone? (i is relative to inner box, 0 to innerHeight-1)
+                     // But content area is from pad to innerHeight-pad
+                     if (i >= pad && i < innerHeight - pad) {
+                         const contentRow = i - pad;
+                         if (contentRow >= scrollPos && contentRow < scrollPos + scrollbarHeight) {
+                             rightBorder = '│'; // Active scrollbar part, maybe color it differently
+                             // Actually user suggested using unicode or color change
+                             // Let's make it a colored block or pipe
+                             rightBorder = Styler.style('│', 'brightWhite');
+                         } else {
+                             rightBorder = Styler.style('│', 'dim'); // Track
+                         }
+                     }
+                }
+            }
+
+            const row = `${style.v}${safeRowString}${rightBorder}`;
             Screen.write(startX, startY + 1 + i, Styler.style(row, color));
         }
 
         // 3. Draw Bottom Border
-        Screen.write(startX, startY + boxHeight - 1, Styler.style(style.bl + style.h.repeat(innerWidth) + style.br, color));
+        Screen.write(startX, startY + (height || 0) - 1, Styler.style(style.bl + style.h.repeat(innerWidth) + style.br, color));
+    }
+
+    // Static compatibility method
+    static render(content: string | string[], options: BoxOptions = {}) {
+        const box = new Box(content, options);
+        box.render();
     }
 }

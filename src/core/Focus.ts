@@ -4,7 +4,7 @@ export interface Focusable {
     id: string;
     focus(): void;
     blur(): void;
-    handleKey(key: readline.Key): void; 
+    handleKey(key: readline.Key): boolean | void; // Return true if key is consumed
     render(): void;
 }
 
@@ -23,32 +23,41 @@ export class FocusManager {
     handleKey(key: readline.Key) {
         if (this.components.length === 0) return;
 
+        // === COMPONENT LOGIC ===
+        // Give the active component a chance to consume the key first
+        const activeComponent = this.components[this.activeIndex];
+        let consumed = false;
+        if (activeComponent) {
+            const result = activeComponent.handleKey(key);
+            consumed = result === true;
+        }
+
+        if (consumed) {
+            return;
+        }
+
         // === NAVIGATION LOGIC ===
         
-        // Next: Tab, Down, Right
+        // Next: Tab
         if (key.name === 'tab' && !key.shift) {
             this.cycleFocus(false);
             return;
         }
+        // Fallback: Down/Right for next (if not consumed by component)
         if (key.name === 'down' || key.name === 'right') {
             this.cycleFocus(false);
             return;
         }
 
-        // Previous: Shift+Tab, Up, Left
+        // Previous: Shift+Tab
         if (key.name === 'tab' && key.shift) {
             this.cycleFocus(true);
             return;
         }
+        // Fallback: Up/Left for previous (if not consumed by component)
         if (key.name === 'up' || key.name === 'left') {
             this.cycleFocus(true);
             return;
-        }
-
-        // === COMPONENT LOGIC ===
-        const activeComponent = this.components[this.activeIndex];
-        if (activeComponent) {
-            activeComponent.handleKey(key);
         }
     }
 

@@ -26,14 +26,18 @@ export class Button implements Focusable {
 
     focus() {
         this.isFocused = true;
+        this.render(); // Ensure render called on focus
     }
 
     blur() {
         this.isFocused = false;
         this.isPressed = false;
+        this.render();
     }
 
-    handleKey(key: readline.Key) {
+    handleKey(key: readline.Key): boolean {
+        if (!this.isFocused) return false;
+
         if (key.name === 'return' || key.name === 'enter' || key.name === 'space') {
             this.isPressed = true;
             this.render(); // Show pressed state visually
@@ -44,7 +48,10 @@ export class Button implements Focusable {
                 this.render();
                 this.options.onPress();
             }, 150);
+            
+            return true;
         }
+        return false;
     }
 
     render() {

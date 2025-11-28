@@ -36,21 +36,25 @@ export class InputField implements Focusable {
         this.value = val;
     }
 
-    handleKey(key: readline.Key) {
-        if (!this.isFocused) return;
+    handleKey(key: readline.Key): boolean {
+        if (!this.isFocused) return false;
 
         if (key.name === 'backspace') {
             this.value = this.value.slice(0, -1);
+            this.render();
+            return true;
         } else if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
             // Basic text input filtering
             // Only accept printable characters (rough check)
             if (/^[\x20-\x7E]$/.test(key.sequence)) {
                 this.value += key.sequence;
+                this.render();
+                return true;
             }
         }
         
-        // Re-render immediately on type
-        this.render();
+        // Did not consume (e.g., arrow keys, tabs)
+        return false;
     }
 
     render() {

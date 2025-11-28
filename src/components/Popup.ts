@@ -26,8 +26,7 @@ export class Popup {
             title: options.title || "ALERT",
             borderColor: options.color || 'red',
             style: 'double',
-            padding: 1,
-            fill: true // Explicit intent (though logic is now built-in)
+            padding: 1
         });
         
         Screen.write(x + 2, y + boxHeight - 1, Styler.style("[Press Enter]", 'dim'));
