@@ -32,7 +32,10 @@ export class Select implements Focusable {
 
     blur() {
         this.isFocused = false;
-        this.isOpen = false; // Close on blur
+        if (this.isOpen) {
+            this.isOpen = false;
+            this.clearDropdownArea(); // Clear artifacts
+        }
         this.render();
     }
 
@@ -51,6 +54,7 @@ export class Select implements Focusable {
                 return true;
             } else if (key.name === 'return' || key.name === 'enter' || key.name === 'escape') {
                 this.isOpen = false;
+                this.clearDropdownArea(); // Clear artifacts
                 if (key.name !== 'escape' && this.options.onSelect) {
                     this.options.onSelect(this.selectedIndex, this.options.items[this.selectedIndex]);
                 }
@@ -83,6 +87,21 @@ export class Select implements Focusable {
         return false;
     }
 
+    private clearDropdownArea() {
+        const { x, y, width, items, label } = this.options;
+        const w = width || 20;
+        const labelText = label ? `${label}: ` : '';
+        const inputX = x + labelText.length;
+        
+        // Clear the exact area where dropdown items were drawn
+        for (let i = 0; i < items.length; i++) {
+            const itemY = y + 1 + i;
+            // Write spaces to clear. We use ' ' * w.
+            // This might wipe underlying content, but it removes the ghost text.
+            Screen.write(inputX, itemY, ' '.repeat(w));
+        }
+    }
+
     render() {
         const { x, y, width, label, items } = this.options;
         const w = width || 20;
@@ -91,9 +110,7 @@ export class Select implements Focusable {
         const labelLen = labelText.length;
 
         if (label) {
-             // dim is a modifier not a colorname, so we need to be careful with type or just cast to any or fix Styler.style signature
-             // Styler.style takes (ColorName | ModifierName)[]
-             const labelStyle = this.isFocused ? 'brightCyan' : 'white'; // Use a color
+             const labelStyle = this.isFocused ? 'brightCyan' : 'white'; 
              // If not focused, make it dim using modifier
              if (this.isFocused) {
                  Screen.write(x, y, Styler.style(labelText, 'brightCyan', 'bold'));

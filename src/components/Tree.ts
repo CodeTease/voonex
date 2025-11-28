@@ -16,6 +16,7 @@ export interface TreeOptions {
     x: number;
     y: number;
     height?: number; // For scrolling
+    width?: number; // For clearing lines
 }
 
 // Flattened node for navigation
@@ -36,7 +37,7 @@ export class Tree implements Focusable {
 
     constructor(options: TreeOptions) {
         this.id = options.id;
-        this.options = options;
+        this.options = { width: 50, ...options }; // Default width to 50
         this.root = options.root;
         // Ensure root is expanded by default?
         this.root.expanded = true;
@@ -131,8 +132,9 @@ export class Tree implements Focusable {
     }
 
     render() {
-        const { x, y, height } = this.options;
+        const { x, y, height, width } = this.options;
         const visibleHeight = height || this.flatList.length;
+        const renderWidth = width || 50;
 
         // Clear area if possible? Or rely on overwrite.
         // Assuming box drawing or clearing happens before or we write spaces.
@@ -156,9 +158,24 @@ export class Tree implements Focusable {
                     name = Styler.style(name, 'dim');
                 }
 
-                Screen.write(x, y + i, `${prefix}${indent}${icon} ${name}`.padEnd(50)); // Pad to clear prev text
+                // Note: Styler.style adds ansi codes. padEnd counts string length. 
+                // We should pad AFTER stripping, or be careful. 
+                // However, padEnd works on the full string including codes, so visual length will be shorter if we pad the colored string.
+                // We need to calculate how much padding to add based on visual length.
+                
+                const content = `${prefix}${indent}${icon} ${name}`;
+                // This is still tricky because 'name' has codes.
+                // Simple hack: Write content, then clear rest of line manually.
+                
+                // Or construct string without colors to measure length, then add padding.
+                const cleanName = node.name;
+                const cleanContent = `${prefix}${indent}${icon} ${cleanName}`; // Approximation
+                const visualLen = cleanContent.length; // Approximate
+                const padding = ' '.repeat(Math.max(0, renderWidth - visualLen));
+                
+                Screen.write(x, y + i, content + padding); 
             } else {
-                Screen.write(x, y + i, ' '.repeat(50));
+                Screen.write(x, y + i, ' '.repeat(renderWidth));
             }
         }
     }

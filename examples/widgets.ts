@@ -51,20 +51,19 @@ function handleSelection(action: string) {
         total: 100,
         format: "Processing: [:bar] :percent | :status",
         completeChar: '█',
-        incompleteChar: '░'
+        incompleteChar: '░',
+        x: 4,
+        y: 12
     });
 
     let progress = 0;
-    // Move cursor to a specific spot for the bar
-    // Note: ProgressBar currently writes to stdout directly via \r, 
-    // for a TUI we usually want it at specific X,Y. 
-    // This is a hybrid demo.
-    Cursor.moveTo(4, 12);
+    
+    // Legacy: Cursor.moveTo(4, 12); -> Removed because we pass x,y to bar
 
     const timer = setInterval(() => {
         progress += 2;
-        // Hacky cursor positioning for the bar loop in this simple architecture
-        Cursor.moveTo(4, 12);
+        
+        // Legacy: Cursor.moveTo(4, 12); -> Removed
         
         bar.update(progress, { 
             status: progress < 50 ? "Initializing" : "Finalizing" 

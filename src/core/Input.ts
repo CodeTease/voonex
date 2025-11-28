@@ -3,6 +3,7 @@
 // ==========================================
 
 import * as readline from 'readline';
+import { Screen } from './Screen';
 
 export type KeyHandler = (key: readline.Key) => void;
 
@@ -22,6 +23,7 @@ export class Input {
         process.stdin.on('keypress', (str, key) => {
             // Handle Ctrl+C globally to prevent trapping the user
             if (key.ctrl && key.name === 'c') {
+                Screen.leave(); // Restore terminal state
                 process.exit();
             }
 

@@ -1,5 +1,5 @@
 import { Styler, ColorName } from '../core/Styler';
-import { Cursor } from '../core/Cursor';
+import { Screen } from '../core/Screen';
 
 interface ProgressBarOptions {
     width?: number;
@@ -7,7 +7,9 @@ interface ProgressBarOptions {
     completeChar?: string;
     incompleteChar?: string;
     format?: string; // ":bar :percent :msg"
-    color?: ColorName; // FIX: Use ColorName type directly
+    color?: ColorName; 
+    x?: number; // Optional X position
+    y?: number; // Optional Y position
 }
 
 export class ProgressBar {
@@ -16,7 +18,9 @@ export class ProgressBar {
     private width: number;
     private chars: { complete: string; incomplete: string };
     private format: string;
-    private color: ColorName; // FIX: Use ColorName type directly
+    private color: ColorName;
+    private x: number;
+    private y: number;
 
     constructor(options: ProgressBarOptions = {}) {
         this.total = options.total || 100;
@@ -26,11 +30,18 @@ export class ProgressBar {
             incomplete: options.incompleteChar || '░'
         };
         this.format = options.format || "[:bar] :percent";
-        this.color = options.color || 'green'; // FIX: No more 'as any', type safe now
+        this.color = options.color || 'green';
+        this.x = options.x || 0;
+        this.y = options.y || 0;
     }
 
-    update(current: number, tokens: Record<string, string> = {}) {
+    // Allow overriding position in update
+    update(current: number, tokens: Record<string, string> = {}, pos?: { x: number, y: number }) {
         this.current = current;
+        // Use provided pos or stored pos
+        const drawX = pos?.x ?? this.x;
+        const drawY = pos?.y ?? this.y;
+
         const ratio = Math.min(Math.max(current / this.total, 0), 1);
         const percent = Math.floor(ratio * 100);
         
@@ -50,13 +61,12 @@ export class ProgressBar {
             str = str.replace(`:${key}`, val);
         }
 
-        // Move cursor to start of line to overwrite
-        Cursor.clearLine();
-        // Just write \r to return to start of line, simpler for this component
-        process.stdout.write('\r' + str);
+        // Use Screen.write instead of direct stdout
+        Screen.write(drawX, drawY, str);
     }
 
     finish() {
-        process.stdout.write('\n');
+        // No-op in buffered mode, or maybe clear? 
+        // Or keep last state.
     }
 }
