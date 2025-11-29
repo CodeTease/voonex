@@ -24,7 +24,6 @@
   "files": [
     "dist",
     "README.md",
-    "LICENSE",
-    "examples"
+    "LICENSE"
   ]
 }
