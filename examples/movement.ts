@@ -7,26 +7,14 @@ const speed = 2;
 let running = true;
 
 function render() {
-    // 1. Clear previous frame (Simple clear for now)
-    Screen.enter(); // Ensure we are in alt buffer
-    // Note: In a real advanced engine, we would diff and only clear needed parts.
-    // For now, we clear the specific area or whole screen.
-    // To avoid flickering in this simple version, we won't clear *everything*, just overwrite.
-}
-
-function update() {
-    // Clear screen manually to prevent trails (naive approach for Phase 1)
-    console.clear(); 
+    // With Painter's Algorithm, we don't need to manually clear.
+    // Screen.flush handles clearing if roots are present.
     
     // Draw Instructions
     Screen.write(2, 1, Styler.style("VOONEX INTERACTIVE DEMO", 'bold', 'cyan'));
     Screen.write(2, 2, "Use Arrow Keys to move. Press 'q' to quit.");
 
     // Draw the Player (Box)
-    // We hack the Box component to render at specific lines by capturing its output
-    // But since Box uses console.log directly, we can't easily position it yet without refactoring Box.
-    // So for Phase 1 demo, we draw manually using Screen.write
-    
     const playerColor = 'brightGreen';
     Screen.write(x, y,     Styler.style("╔════════╗", playerColor));
     Screen.write(x, y + 1, Styler.style("║ VOONEX ║", playerColor, 'bold'));
@@ -38,6 +26,9 @@ function update() {
 
 async function start() {
     Screen.enter();
+    
+    // Mount render function
+    Screen.mount(render);
 
     Input.onKey((key) => {
         switch (key.name) {
@@ -59,12 +50,8 @@ async function start() {
                 process.exit(0);
                 break;
         }
-        // Re-render on input (Event-driven rendering)
-        update(); 
+        // State updated, Screen.scheduleRender() is called automatically by Input
     });
-
-    // Initial render
-    update();
 }
 
 function cleanup() {

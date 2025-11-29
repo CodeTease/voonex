@@ -61,14 +61,23 @@ async function main() {
     fm.register(box1);
     fm.register(box2);
 
-    // Initial Render
-    box1.render();
-    box2.render();
+    // Render Function
+    const render = () => {
+        box1.render();
+        box2.render();
+        Screen.write(2, 20, "Press TAB to switch focus. Arrows/PgUp/PgDn to scroll. Ctrl+C to exit.");
+    };
 
-    Screen.write(2, 20, "Press TAB to switch focus. Arrows/PgUp/PgDn to scroll. Ctrl+C to exit.");
+    Screen.mount(render);
 
     Input.onKey((key) => {
         fm.handleKey(key);
+        // FocusManager calls .focus()/.blur() on components, which might call render() internally?
+        // Box.focus() calls this.render().
+        // If Box.render() calls Screen.write(), it schedules render.
+        // And since we mounted 'render', when flush happens, it calls 'render' again.
+        // This is fine. 'render' calls 'box1.render()', which writes.
+        // It's efficient enough.
     });
 }
 

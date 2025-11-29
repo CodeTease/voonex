@@ -3,15 +3,12 @@ import { Screen, Menu, ProgressBar, Box, Input, Styler, Cursor } from '../src';
 async function main() {
     Screen.enter();
     
-    // Draw a Header
-    Box.render([
-        "VOONEX WIDGETS DEMO",
-        "Select an action below"
-    ], { 
-        padding: 1, 
-        borderColor: 'brightMagenta', 
-        style: 'double' 
-    });
+    // State
+    let menuActive = true;
+    let processing = false;
+    let progress = 0;
+    let status = "";
+    let done = false;
 
     // Initialize Menu
     const menu = new Menu({
@@ -25,27 +22,36 @@ async function main() {
         x: 4,
         y: 8,
         onSelect: (index, item) => {
-            handleSelection(item);
+            if (item === "Exit") {
+                Screen.leave();
+                process.exit(0);
+            }
+            
+            // Start Processing
+            menuActive = false;
+            processing = true;
+            status = "Initializing";
+            Screen.scheduleRender(); // Trigger render change
+            
+            // Start Animation Loop
+            const timer = setInterval(() => {
+                progress += 2;
+                status = progress < 50 ? "Initializing" : "Finalizing";
+                
+                if (progress >= 100) {
+                    clearInterval(timer);
+                    processing = false;
+                    done = true;
+                }
+                Screen.scheduleRender(); // Trigger render update
+            }, 50);
         }
     });
-
-    menu.start();
-}
-
-function handleSelection(action: string) {
-    // Clear the menu area (rough clearing for demo)
-    for(let i=0; i<15; i++) {
-        Screen.write(2, 8 + i, " ".repeat(40));
-    }
-
-    if (action === "Exit") {
-        Screen.leave();
-        process.exit(0);
-    }
-
-    Screen.write(4, 10, Styler.style(`Executing: ${action}...`, 'yellow'));
     
-    // Simulate Progress Bar
+    // Hack to enable menu input processing without calling start()
+    // We treat it as "focused" manually
+    (menu as any).active = true; 
+
     const bar = new ProgressBar({
         width: 30,
         total: 100,
@@ -56,33 +62,51 @@ function handleSelection(action: string) {
         y: 12
     });
 
-    let progress = 0;
-    
-    // Legacy: Cursor.moveTo(4, 12); -> Removed because we pass x,y to bar
-
-    const timer = setInterval(() => {
-        progress += 2;
-        
-        // Legacy: Cursor.moveTo(4, 12); -> Removed
-        
-        bar.update(progress, { 
-            status: progress < 50 ? "Initializing" : "Finalizing" 
+    // Render Function
+    const render = () => {
+        // Draw a Header
+        Box.render([
+            "VOONEX WIDGETS DEMO",
+            "Select an action below"
+        ], { 
+            padding: 1, 
+            borderColor: 'brightMagenta', 
+            style: 'double' 
         });
 
-        if (progress >= 100) {
-            clearInterval(timer);
-            bar.finish();
-            
-            Screen.write(4, 14, Styler.style("DONE! Press any key to exit.", 'green', 'bold'));
-            
-            // Wait for key to exit
-            Input.reset(); // Reset previous listeners
-            Input.onKey(() => {
-                Screen.leave();
-                process.exit(0);
-            });
+        if (menuActive) {
+            menu.render(); // Draws menu
+        } else if (processing) {
+             Screen.write(4, 10, Styler.style(`Executing...`, 'yellow'));
+             
+             // ProgressBar updates usually draw.
+             // We want to force draw.
+             // ProgressBar.update(val, tokens) updates state AND draws.
+             // But we are in render() which is called repeatedly.
+             // We should call bar.render() here, but ProgressBar might not expose it publicly or cleanly separate it from update logic?
+             // If we check ProgressBar.ts later...
+             // For now, let's call bar.update() with current values, which re-draws.
+             bar.update(progress, { status: status });
+             
+        } else if (done) {
+             Screen.write(4, 10, Styler.style(`Executing...`, 'yellow'));
+             bar.update(100, { status: "Done" });
+             Screen.write(4, 14, Styler.style("DONE! Press any key to exit.", 'green', 'bold'));
         }
-    }, 50);
+    };
+    
+    Screen.mount(render);
+
+    Input.onKey((key) => {
+        if (done) {
+            Screen.leave();
+            process.exit(0);
+        }
+        
+        if (menuActive) {
+            menu.handleKey(key);
+        }
+    });
 }
 
 main();

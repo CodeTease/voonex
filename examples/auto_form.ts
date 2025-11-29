@@ -3,18 +3,6 @@ import { Screen, Box, InputField, Button, FocusManager, Input, Styler, Popup } f
 async function main() {
     Screen.enter();
 
-    // 1. Setup UI Static Elements
-    Box.render([], {
-        title: "AUTOMATED FORM",
-        x: 20, y: 5,
-        width: 60,
-        height: 18,
-        borderColor: 'brightYellow',
-        style: 'double'
-    });
-
-    Screen.write(22, 18, Styler.style("Use [TAB] or [ARROWS] to navigate. [ENTER] to act.", 'dim'));
-
     // 2. Setup Focus Manager
     const focusManager = new FocusManager();
 
@@ -44,30 +32,44 @@ async function main() {
         }
     });
 
-    // 4. Register Components to Manager (Order matters for Tab cycle!)
+    // 4. Register Components
     focusManager.register(firstName);
     focusManager.register(lastName);
     focusManager.register(email);
     focusManager.register(btnSubmit);
     focusManager.register(btnCancel);
 
-    // 5. Initial Render
-    // We render manually once, then updates happen via interactions
-    firstName.render();
-    lastName.render();
-    email.render();
-    btnSubmit.render();
-    btnCancel.render();
+    // 5. Render Function
+    const render = () => {
+        // Static Elements
+        Box.render([], {
+            title: "AUTOMATED FORM",
+            x: 20, y: 5,
+            width: 60,
+            height: 18,
+            borderColor: 'brightYellow',
+            style: 'double'
+        });
+
+        Screen.write(22, 18, Styler.style("Use [TAB] or [ARROWS] to navigate. [ENTER] to act.", 'dim'));
+
+        // Components
+        firstName.render();
+        lastName.render();
+        email.render();
+        btnSubmit.render();
+        btnCancel.render();
+    };
+
+    Screen.mount(render);
 
     // 6. Hook into Input
     Input.onKey((key) => {
-        // Global Exit safety
         if (key.name === 'escape') {
             Screen.leave();
             process.exit(0);
         }
         
-        // Delegate EVERYTHING to the Manager
         focusManager.handleKey(key);
     });
 
@@ -75,21 +77,17 @@ async function main() {
         // Validation Logic
         if (!email.value.includes('@')) {
             Popup.alert("Invalid Email Address!", { title: "ERROR", color: "red" });
-            // Hack: Re-render inputs after popup clears (in a real app, layer manager handles this)
-            setTimeout(() => {
-                 // In this simple architecture, we might need to manually refresh UI
-                 // For now, let's just log or assume user presses a key to refresh
-                 firstName.render(); lastName.render(); email.render();
-            }, 100); 
             return;
         }
 
         Popup.alert(`Saved: ${firstName.value} ${lastName.value}`, { title: "SUCCESS", color: "green" });
+        
         // Clear form
         firstName.setValue("");
         lastName.setValue("");
         email.setValue("");
-        firstName.render(); lastName.render(); email.render();
+        // No manual render needed, Input loop handles it.
+        Screen.scheduleRender();
     }
 }
 

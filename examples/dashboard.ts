@@ -104,21 +104,15 @@ function renderDashboard() {
 async function main() {
     Screen.enter();
     
-    // Initial Render
-    renderDashboard();
-
-    // REGISTER RESIZE HANDLER
-    // This makes the app responsive!
-    Screen.onResize(() => {
-        renderDashboard();
-    });
+    // Mount the render function to the screen (Painter's Algorithm)
+    Screen.mount(renderDashboard);
 
     // Event Listener attached ONCE
     Input.onKey((key) => {
         if (isPopupOpen) {
             if (key.name === 'return' || key.name === 'enter' || key.name === 'escape') {
                 isPopupOpen = false;
-                renderDashboard(); 
+                // renderDashboard() is called automatically via Screen.scheduleRender
             }
             return;
         }
@@ -130,13 +124,12 @@ async function main() {
         
         if (key.name === 'p') {
             isPopupOpen = true;
-            renderDashboard(); // Re-render to show popup
         }
         
-        if (key.name === 'r') {
-            renderDashboard();
-        }
+        // No manual renderDashboard() needed!
     });
+    
+    // No manual resize handler needed! Screen.onResize triggers render loop.
 }
 
 main();

@@ -5,7 +5,8 @@
 import * as readline from 'readline';
 import { Screen } from './Screen';
 
-export type KeyHandler = (key: readline.Key) => void;
+// Handler returns true to consume event (stop propagation)
+export type KeyHandler = (key: readline.Key) => boolean | void;
 
 export class Input {
     private static listeners: KeyHandler[] = [];
@@ -27,7 +28,14 @@ export class Input {
                 process.exit();
             }
 
-            this.listeners.forEach(listener => listener(key));
+            // Iterate backwards so newest listeners (e.g. Popups) get first dibs
+            for (let i = this.listeners.length - 1; i >= 0; i--) {
+                const consumed = this.listeners[i](key);
+                if (consumed === true) break;
+            }
+            
+            // Trigger a render check after input handling
+            Screen.scheduleRender();
         });
 
         this.initialized = true;
@@ -38,11 +46,17 @@ export class Input {
         this.listeners.push(handler);
     }
 
+    static offKey(handler: KeyHandler) {
+        this.listeners = this.listeners.filter(l => l !== handler);
+    }
+
     /**
      * Stops listening and restores stdin.
      */
     static reset() {
-        process.stdin.setRawMode(false);
+        if (process.stdin.isTTY) {
+            process.stdin.setRawMode(false);
+        }
         process.stdin.pause();
         this.listeners = [];
         this.initialized = false;

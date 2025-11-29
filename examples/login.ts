@@ -4,20 +4,24 @@ import { Screen, Input, Box, InputField, Styler } from '../src';
 // 1. SETUP UI ELEMENTS
 // ==============================
 
+// Manually focus the first one initially
 const inputs: InputField[] = [
     new InputField({ 
+        id: 'user',
         label: "Username", 
         x: 30, y: 10, 
-        width: 30, 
-        focused: true 
+        width: 30
     }),
     new InputField({ 
+        id: 'pass',
         label: "Password", 
         x: 30, y: 13, 
         width: 30, 
         type: 'password'
     })
 ];
+
+inputs[0].focus(); // Set initial focus
 
 let focusedIndex = 0;
 let message = "";
@@ -58,7 +62,7 @@ function render() {
 
 async function start() {
     Screen.enter();
-    render();
+    Screen.mount(render);
 
     Input.onKey((key) => {
         // Global Exit
@@ -69,32 +73,29 @@ async function start() {
 
         // Navigation (TAB / DOWN)
         if (key.name === 'tab' || key.name === 'down') {
-            // FIX: Check existence before assignment instead of using ?.
             if (focusedIndex < inputs.length) {
-                inputs[focusedIndex].focused = false;
+                inputs[focusedIndex].blur();
             }
             
             focusedIndex = (focusedIndex + 1) % 3; // 0, 1, 2(Button)
             
             if (focusedIndex < inputs.length) {
-                inputs[focusedIndex].focused = true;
+                inputs[focusedIndex].focus();
             }
-            render();
             return;
         }
 
         // Navigation (UP)
         if (key.name === 'up') {
             if (focusedIndex < inputs.length) {
-                inputs[focusedIndex].focused = false;
+                inputs[focusedIndex].blur();
             }
             
             focusedIndex = (focusedIndex - 1 + 3) % 3;
             
             if (focusedIndex < inputs.length) {
-                inputs[focusedIndex].focused = true;
+                inputs[focusedIndex].focus();
             }
-            render();
             return;
         }
 
@@ -105,12 +106,17 @@ async function start() {
                 const pass = inputs[1].value;
                 
                 message = "Authenticating...";
-                render();
+                // Screen will auto-update because Input triggered scheduleRender
+                // But we want a delayed response.
+                
+                // Note: setTimeout is outside Input loop, so we must manually scheduleRender 
+                // if we change state inside it.
 
                 setTimeout(() => {
                     if (user === 'admin' && pass === '1234') {
                         message = "SUCCESS! Welcome Admin.";
-                        render();
+                        Screen.scheduleRender(); // Trigger update
+                        
                         setTimeout(() => {
                             Screen.leave();
                             console.log(Styler.style("\nLogged in successfully.", 'green'));
@@ -119,23 +125,21 @@ async function start() {
                     } else {
                         message = "ERROR: Invalid Credentials!";
                         inputs[1].setValue(""); // Clear pass
-                        render();
+                        Screen.scheduleRender(); // Trigger update
                     }
                 }, 800);
             } else {
                 // If on input, move to next
-                if (focusedIndex < inputs.length) inputs[focusedIndex].focused = false;
+                if (focusedIndex < inputs.length) inputs[focusedIndex].blur();
                 focusedIndex = (focusedIndex + 1) % 3;
-                if (focusedIndex < inputs.length) inputs[focusedIndex].focused = true;
-                render();
+                if (focusedIndex < inputs.length) inputs[focusedIndex].focus();
             }
             return;
         }
 
         // Typing
         if (focusedIndex < inputs.length) {
-            inputs[focusedIndex].handleKey(key.name || '', key.sequence);
-            render();
+            inputs[focusedIndex].handleKey(key);
         }
     });
 }

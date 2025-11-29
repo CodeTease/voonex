@@ -3,17 +3,9 @@ import { Screen, FocusManager, Box, Table, Textarea, Select, Checkbox, RadioGrou
 async function main() {
     Screen.enter();
 
-    // 1. Header
-    Box.render("ADVANCED COMPONENT DEMO", {
-        x: 1, y: 1, width: 80, height: 3, style: 'double', borderColor: 'brightMagenta', title: 'Voonex'
-    });
-
     const fm = new FocusManager();
 
     // 2. Form Area
-    // Name Input
-    // Note: Input is the class InputField exported as InputField (Wait, Input is from core/Input.ts, InputField is from components/Input.ts)
-    // Check index.ts
     const nameInput = new InputField({
         id: 'name',
         label: 'Name',
@@ -21,7 +13,6 @@ async function main() {
         width: 30
     });
 
-    // Select Country
     const countrySelect = new Select({
         id: 'country',
         label: 'Country',
@@ -30,7 +21,6 @@ async function main() {
         width: 20
     });
 
-    // Checkbox Terms
     const termsCheck = new Checkbox({
         id: 'terms',
         label: 'I agree to terms',
@@ -38,7 +28,6 @@ async function main() {
         checked: false
     });
 
-    // Radio Gender
     const genderRadio = new RadioGroup({
         id: 'gender',
         label: 'Gender',
@@ -47,7 +36,6 @@ async function main() {
         direction: 'horizontal'
     });
 
-    // Textarea Bio
     const bioText = new Textarea({
         id: 'bio',
         label: 'Bio',
@@ -57,7 +45,6 @@ async function main() {
         value: "Write something about yourself...\nThis supports multi-line text.\nAnd scrolling!"
     });
 
-    // Table
     const dataTable = new Table(["ID", "Name", "Role"], {
         id: 'users',
         x: 2, y: 18,
@@ -76,20 +63,28 @@ async function main() {
     fm.register(bioText);
     fm.register(dataTable);
 
-    // Initial Render
-    nameInput.render();
-    countrySelect.render();
-    termsCheck.render();
-    genderRadio.render();
-    bioText.render();
-    dataTable.render();
+    // Render Function
+    const render = () => {
+        // Header
+        Box.render("ADVANCED COMPONENT DEMO", {
+            x: 1, y: 1, width: 80, height: 3, style: 'double', borderColor: 'brightMagenta', title: 'Voonex'
+        });
+        
+        // Components
+        nameInput.render();
+        countrySelect.render();
+        termsCheck.render();
+        genderRadio.render();
+        bioText.render();
+        dataTable.render();
 
-    Screen.write(2, 28, "Tab: Next | Shift+Tab: Prev | Ctrl+C: Exit");
+        Screen.write(2, 28, "Tab: Next | Shift+Tab: Prev | Ctrl+C: Exit");
+    };
+
+    Screen.mount(render);
 
     Input.onKey((key) => {
         fm.handleKey(key);
-        // Refresh help text
-        Screen.write(2, 28, "Tab: Next | Shift+Tab: Prev | Ctrl+C: Exit");
     });
 }
 

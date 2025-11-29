@@ -2,12 +2,9 @@
 // CORE: LAYOUT ENGINE (The "Architect")
 // ==========================================
 
-export interface Rect {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-}
+import { Rect } from './Screen';
+
+export { Rect };
 
 export class Layout {
     /**

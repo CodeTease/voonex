@@ -2,33 +2,55 @@ import { Box } from './Box';
 import { Screen } from '../core/Screen';
 import { Styler } from '../core/Styler';
 import { ColorName } from '../core/Styler';
+import { Input } from '../core/Input';
 
 export class Popup {
     static alert(message: string, options: { title?: string, color?: ColorName } = {}) {
-        const { width, height } = Screen.size;
-        const msgLen = Styler.len(message);
-        
-        const boxWidth = Math.max(msgLen + 6, 40); // Make it slightly wider for better look
-        const boxHeight = 5; 
-        
-        const x = Math.floor((width - boxWidth) / 2);
-        const y = Math.floor((height - boxHeight) / 2);
+        // Mount a high-priority render function
+        const renderPopup = () => {
+             const { width, height } = Screen.size;
+             const lines = message.split('\n');
+             const maxLen = Math.max(...lines.map(l => Styler.len(l)));
+             
+             const boxWidth = Math.max(maxLen + 6, 40);
+             const boxHeight = lines.length + 4; 
+             
+             const x = Math.floor((width - boxWidth) / 2);
+             const y = Math.floor((height - boxHeight) / 2);
 
-        // No need to manually clear anymore! The new Box renders solid spaces.
+             // Manually clear popup area for opacity
+             for(let i=0; i<boxHeight; i++) {
+                 Screen.write(x, y + i, " ".repeat(boxWidth));
+             }
 
-        Box.render([
-            "", 
-            Styler.style(message, 'white', 'bold') 
-        ], {
-            x, y,
-            width: boxWidth,
-            height: boxHeight,
-            title: options.title || "ALERT",
-            borderColor: options.color || 'red',
-            style: 'double',
-            padding: 1
-        });
+             Box.render([
+                 ...lines
+             ], {
+                 x, y,
+                 width: boxWidth,
+                 height: boxHeight,
+                 title: options.title || "ALERT",
+                 borderColor: options.color || 'red',
+                 style: 'double',
+                 padding: 1
+             });
+             
+             Screen.write(x + 2, y + boxHeight - 1, Styler.style("[Press Enter]", 'dim'));
+        };
+
+        const POPUP_Z_INDEX = 9999;
+        Screen.mount(renderPopup, POPUP_Z_INDEX);
         
-        Screen.write(x + 2, y + boxHeight - 1, Styler.style("[Press Enter]", 'dim'));
+        const handler = (key: any) => {
+            if (key.name === 'return' || key.name === 'enter' || key.name === 'escape') {
+                Screen.unmount(renderPopup);
+                Input.offKey(handler);
+                return true; // Stop propagation
+            }
+            return true; // Consume other keys while popup is open? 
+            // Usually alerts are modal, so yes, consume everything.
+        };
+        
+        Input.onKey(handler);
     }
 }
