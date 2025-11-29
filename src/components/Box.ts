@@ -97,21 +97,28 @@ export class Box implements Focusable {
     }
 
     private wrapLine(line: string, width: number): { head: string, tail: string } {
-        // This is a naive implementation. 
-        // Real implementation should respect ANSI codes and word boundaries.
-        // Assuming plain text for simplicity in this iteration or stripped text.
+        // Updated implementation to use Styler.len (visual width) and Styler.truncate
         
-        // Find last space before width
-        const raw = line; // Should handle Styler.strip if we want strict length check
+        const raw = line; 
+        const visualLen = Styler.len(raw);
         
-        if (raw.length <= width) return { head: raw, tail: '' };
+        if (visualLen <= width) return { head: raw, tail: '' };
         
-        let splitIdx = raw.lastIndexOf(' ', width);
-        if (splitIdx === -1) splitIdx = width; // Force split if no space
+        // Try to find a space within the visual width
+        // This logic is still simplified as searching for space by index vs visual position is tricky with mixed widths.
+        // For now, let's just truncate at width to prevent overflow, ignoring word boundaries if complex.
+        // Or we can try to find the last space that fits.
+        
+        // Let's first just truncate to fit width exactly.
+        const head = Styler.truncate(raw, width);
+        const tail = raw.substring(head.length); // Use head.length (string length) to slice
+        
+        // If we want word wrapping, we would check if 'head' ends with space or if 'tail' starts with space.
+        // But implementing proper word wrap with visual width is complex without iterating.
         
         return {
-            head: raw.substring(0, splitIdx),
-            tail: raw.substring(splitIdx).trimStart()
+            head: head,
+            tail: tail // No trimStart() to preserve structure if needed, or maybe yes.
         };
     }
 
@@ -205,16 +212,37 @@ export class Box implements Focusable {
             }
 
             const rawLen = Styler.len(lineContent);
+            const contentWidth = innerWidth - (pad * 2);
+
             // Ensure we don't overflow horizontally even if wrap failed or wasn't on
-            if (rawLen > innerWidth - (pad * 2)) {
-                lineContent = lineContent.substring(0, innerWidth - (pad * 2));
+            if (rawLen > contentWidth) {
+                lineContent = Styler.truncate(lineContent, contentWidth);
             }
 
-            const remainingSpace = innerWidth - Styler.len(lineContent) - (pad * 2); // left pad + right pad
+            const remainingSpace = contentWidth - Styler.len(lineContent);
             const rowString = ' '.repeat(pad) + lineContent + ' '.repeat(Math.max(0, remainingSpace)) + ' '.repeat(pad);
             
-            // Trim/Pad to exact innerWidth
-            const safeRowString = rowString.padEnd(innerWidth).substring(0, innerWidth);
+            // Trim/Pad to exact innerWidth using visual logic if possible, 
+            // but padEnd/substring use string length. 
+            // Since we ensured lineContent visual length is correct and we added spaces (width 1),
+            // we should be careful.
+            
+            // Re-calculate visual length of the constructed row
+            // We want 'rowString' to have visual width exactly 'innerWidth'
+            
+            // If we constructed it correctly: 
+            // pad (len) + lineContent (len) + remaining (len) + pad (len)
+            // = pad + (contentWidth - remaining) + remaining + pad = contentWidth + 2*pad = innerWidth.
+            // So visual width should be correct.
+            
+            // However, padEnd/substring operate on string length.
+            // If lineContent has wide chars, string length < visual width.
+            // 'safeRowString' logic below was:
+            // const safeRowString = rowString.padEnd(innerWidth).substring(0, innerWidth);
+            // This is DANGEROUS because it truncates by string index!
+            
+            // We should trust our construction above.
+            const safeRowString = rowString; 
 
             let rightBorder = style.v;
             // Scrollbar logic

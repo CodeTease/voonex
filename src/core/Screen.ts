@@ -16,6 +16,11 @@ export class Screen {
     // Double Buffering
     private static currentBuffer: Cell[][] = [];
     private static previousBuffer: Cell[][] = [];
+    
+    // Layer Stack
+    // Stores snapshots of the buffer before a new layer is added.
+    private static layerStack: Cell[][][] = [];
+
     private static flushInterval: NodeJS.Timeout | null = null;
     private static width = 0;
     private static height = 0;
@@ -113,6 +118,40 @@ export class Screen {
                     }
                     currentX++;
                 }
+            }
+        }
+    }
+
+    /**
+     * Pushes the current screen state to a stack.
+     * Call this before opening a popup or menu.
+     */
+    static pushLayer() {
+        // Deep clone currentBuffer
+        const snapshot = this.currentBuffer.map(row => row.map(cell => ({ ...cell })));
+        this.layerStack.push(snapshot);
+    }
+
+    /**
+     * Restores the screen state from the stack.
+     * Call this when closing a popup or menu.
+     */
+    static popLayer() {
+        const snapshot = this.layerStack.pop();
+        if (snapshot) {
+            // Restore buffer
+            // We must ensure dimensions match (if resized, this might be tricky, but let's assume no resize for now)
+            if (snapshot.length === this.height && snapshot[0].length === this.width) {
+                 this.currentBuffer = snapshot;
+                 // Force a flush of the entire screen?
+                 // Since we replaced currentBuffer, the next flush() will compare it with previousBuffer.
+                 // PreviousBuffer still has what is currently ON SCREEN (the popup).
+                 // CurrentBuffer has the RESTORED content.
+                 // Flush will detect diffs and update screen to match restored content.
+            } else {
+                // If dimensions changed, we can't easily restore. 
+                // Fallback: clear and let components redraw?
+                // For now, ignore invalid snapshots.
             }
         }
     }

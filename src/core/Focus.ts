@@ -1,7 +1,9 @@
+
 import * as readline from 'readline';
 
 export interface Focusable {
     id: string;
+    parent?: Focusable; // Added for bubbling
     focus(): void;
     blur(): void;
     handleKey(key: readline.Key): boolean | void; // Return true if key is consumed
@@ -24,12 +26,17 @@ export class FocusManager {
         if (this.components.length === 0) return;
 
         // === COMPONENT LOGIC ===
-        // Give the active component a chance to consume the key first
-        const activeComponent = this.components[this.activeIndex];
+        // Event Bubbling: Child -> Parent -> Root
+        let target: Focusable | undefined = this.components[this.activeIndex];
         let consumed = false;
-        if (activeComponent) {
-            const result = activeComponent.handleKey(key);
-            consumed = result === true;
+
+        while (target) {
+             const result = target.handleKey(key);
+             if (result === true) {
+                 consumed = true;
+                 break;
+             }
+             target = target.parent;
         }
 
         if (consumed) {
