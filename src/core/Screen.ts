@@ -16,6 +16,7 @@ export class Screen {
     // Double Buffering
     private static currentBuffer: Cell[][] = [];
     private static previousBuffer: Cell[][] = [];
+    private static dirtyRows: boolean[] = [];
     
     // Layer Stack
     // Stores snapshots of the buffer before a new layer is added.
@@ -62,6 +63,8 @@ export class Screen {
         this.previousBuffer = Array(this.height).fill(null).map(() => 
             Array(this.width).fill(null).map(() => ({ char: ' ', style: '' }))
         );
+        // Mark all rows as dirty to ensure full initial render
+        this.dirtyRows = Array(this.height).fill(true);
     }
 
     private static startLoop() {
@@ -91,6 +94,9 @@ export class Screen {
         }
 
         if (y < 0 || y >= this.height) return;
+
+        // Mark row as dirty
+        this.dirtyRows[y] = true;
 
         let currentX = x;
         let currentStyle = "";
@@ -143,11 +149,8 @@ export class Screen {
             // We must ensure dimensions match (if resized, this might be tricky, but let's assume no resize for now)
             if (snapshot.length === this.height && snapshot[0].length === this.width) {
                  this.currentBuffer = snapshot;
-                 // Force a flush of the entire screen?
-                 // Since we replaced currentBuffer, the next flush() will compare it with previousBuffer.
-                 // PreviousBuffer still has what is currently ON SCREEN (the popup).
-                 // CurrentBuffer has the RESTORED content.
-                 // Flush will detect diffs and update screen to match restored content.
+                 // Force a flush of the entire screen
+                 this.dirtyRows.fill(true);
             } else {
                 // If dimensions changed, we can't easily restore. 
                 // Fallback: clear and let components redraw?
@@ -163,6 +166,7 @@ export class Screen {
         if (!this.currentBuffer.length) return;
         
         for (let y = 0; y < this.height; y++) {
+            this.dirtyRows[y] = true;
             for (let x = 0; x < this.width; x++) {
                 this.currentBuffer[y][x] = { char: ' ', style: '' };
             }
@@ -181,6 +185,10 @@ export class Screen {
         let lastStyle = "";
 
         for (let y = 0; y < this.height; y++) {
+            // Optimization: Skip rows that haven't changed
+            if (!this.dirtyRows[y]) continue;
+            this.dirtyRows[y] = false;
+
             for (let x = 0; x < this.width; x++) {
                 const cell = this.currentBuffer[y][x];
                 const prev = this.previousBuffer[y][x];

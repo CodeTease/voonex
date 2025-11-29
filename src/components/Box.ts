@@ -66,7 +66,9 @@ export class Box implements Focusable {
     private processContent() {
         const { width, padding, wrap } = this.options;
         const pad = padding || 1;
-        const innerWidth = (width || 0) - 2 - (pad * 2);
+        // Ensure innerWidth is at least 1 to avoid infinite loops
+        const calculatedInnerWidth = (width || 0) - 2 - (pad * 2);
+        const innerWidth = Math.max(1, calculatedInnerWidth);
 
         if (wrap) {
             this.processedLines = [];
@@ -76,17 +78,25 @@ export class Box implements Focusable {
                 } else {
                     // Simple wrap logic
                     let currentLine = line;
+                    let safetyCounter = 0;
+                    const MAX_LOOPS = 1000; // Prevent infinite loops
+
                     while (Styler.len(currentLine) > innerWidth) {
-                         // Find split point
-                         // Note: This is a simple char split. Ideally split by words.
-                         // But Styler.len handles ansi codes, so slicing directly is dangerous if codes exist.
-                         // For now, assuming plain text or handled simply.
-                         // Improving this requires a smarter wrapper that respects ANSI codes.
-                         // Let's implement a basic word wrapper.
-                         
+                         if (safetyCounter++ > MAX_LOOPS) {
+                             console.error(`Box processContent infinite loop detected. line="${currentLine.substring(0, 20)}..."`);
+                             break;
+                         }
+
                          const wrapped = this.wrapLine(currentLine, innerWidth);
-                         this.processedLines.push(wrapped.head);
-                         currentLine = wrapped.tail;
+                         
+                         // If head is empty, we force a split to avoid infinite loop
+                         if (!wrapped.head && wrapped.tail === currentLine) {
+                             this.processedLines.push(currentLine.substring(0, innerWidth));
+                             currentLine = currentLine.substring(innerWidth);
+                         } else {
+                             this.processedLines.push(wrapped.head);
+                             currentLine = wrapped.tail;
+                         }
                     }
                     if (currentLine) this.processedLines.push(currentLine);
                 }
@@ -97,28 +107,24 @@ export class Box implements Focusable {
     }
 
     private wrapLine(line: string, width: number): { head: string, tail: string } {
-        // Updated implementation to use Styler.len (visual width) and Styler.truncate
+        // Updated implementation to use Styler.len (visual width) and Styler.truncateWithState
         
         const raw = line; 
         const visualLen = Styler.len(raw);
         
         if (visualLen <= width) return { head: raw, tail: '' };
         
-        // Try to find a space within the visual width
-        // This logic is still simplified as searching for space by index vs visual position is tricky with mixed widths.
-        // For now, let's just truncate at width to prevent overflow, ignoring word boundaries if complex.
-        // Or we can try to find the last space that fits.
-        
-        // Let's first just truncate to fit width exactly.
-        const head = Styler.truncate(raw, width);
-        const tail = raw.substring(head.length); // Use head.length (string length) to slice
-        
-        // If we want word wrapping, we would check if 'head' ends with space or if 'tail' starts with space.
-        // But implementing proper word wrap with visual width is complex without iterating.
+        // Use the new truncateWithState to correctly handle ANSI split
+        const { result, remaining } = Styler.truncateWithState(raw, width);
+
+        // Word wrapping optimization (optional but nice)
+        // If the cut was in the middle of a word, try to backtrack to last space.
+        // But backtracking with visual width and ANSI is hard. 
+        // For now, stick to char wrap which is robust.
         
         return {
-            head: head,
-            tail: tail // No trimStart() to preserve structure if needed, or maybe yes.
+            head: result,
+            tail: remaining
         };
     }
 

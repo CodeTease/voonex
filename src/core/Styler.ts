@@ -81,37 +81,93 @@ export class Styler {
      * Returns the substring.
      */
     static truncate(text: string, maxWidth: number): string {
-        // We cannot strip ANSI here because we want to return the string WITH ANSI, just truncated content.
-        // But properly truncating with ANSI is hard (need to maintain state).
-        // For this task, let's assume we operate on the content or 'Box' handles ANSI separately?
-        // Box passes 'currentLine' which might have ANSI?
-        // Box.ts says: "Note: This is a simple char split. Ideally split by words. But Styler.len handles ansi codes, so slicing directly is dangerous if codes exist."
-        // The current implementation in Box assumes plain text or stripped text for wrapping logic in `wrapLine`.
-        // Let's stick to operating on the raw string, but being careful.
-        
-        // If we want to support ANSI, we need to iterate the string token by token.
-        // Given 'zero-dependency' and current state, let's implement a robust version that handles ANSI.
-        
+        const { result } = this.truncateWithState(text, maxWidth);
+        return result;
+    }
+
+    /**
+     * Advanced truncation that preserves ANSI state.
+     * Returns the truncated string and the active ANSI style at the cut point.
+     */
+    static truncateWithState(text: string, maxWidth: number): { result: string, remaining: string, endStyle: string } {
         let width = 0;
         let result = "";
+        let currentStyle = ""; // Tracks active style
+        let remaining = "";
         
         const parts = text.split(/(\x1b\[[0-9;]*m)/);
+        let finished = false;
         
-        for (const part of parts) {
+        for (let i = 0; i < parts.length; i++) {
+            const part = parts[i];
+            
+            if (finished) {
+                remaining += part;
+                continue;
+            }
+
             if (part.startsWith('\x1b[')) {
-                result += part; // Keep ANSI codes
+                result += part;
+                // Track style state
+                if (part === '\x1b[0m' || part === '\x1b[m') {
+                    currentStyle = "";
+                } else {
+                    // This is a naive stack approximation. 
+                    // Real ANSI handling might be more complex (accumulating vs replacing).
+                    // But usually in TUI we just append.
+                    currentStyle += part;
+                }
             } else {
+                for (let j = 0; j < part.length; j++) {
+                    // Iterate by code point to handle surrogate pairs correctly?
+                    // JS strings are UTF-16. 'char' loop iterates code units.
+                    // But we need code points for isWide.
+                    // For simplicity, let's assume iterator handles surrogate pairs if we use `for...of` on string?
+                    // Actually `for (const char of part)` iterates code points (unicode) in ES6.
+                    // But we need index `j` to match `part`.
+                    // We can't mix index loop and iterator easily.
+                    // Let's use iterator and rebuild buffer.
+                    
+                    // But wait, the outer loop IS an iterator.
+                    // Previous implementation used `for (const char of part)`.
+                    // Let's stick to that but we need to know when we stop to build `remaining`.
+                    
+                    // Actually, let's restart the inner loop logic to be safer.
+                    break; 
+                }
+                
+                // Better approach for inner text
+                let partIndex = 0;
                 for (const char of part) {
                     const charWidth = this.isWide(char.codePointAt(0)!) ? 2 : 1;
+                    
                     if (width + charWidth > maxWidth) {
-                        return result;
+                        // We hit the limit.
+                        // We need to stop here.
+                        // `remaining` starts from here.
+                        // `part` is the current text chunk.
+                        remaining += part.substring(partIndex); // Rest of this part
+                        finished = true;
+                        break; 
                     }
+                    
                     width += charWidth;
                     result += char;
+                    partIndex += char.length; // char.length might be 2 for emojis
                 }
             }
         }
         
-        return result;
+        // If we finished with an active style, we should probably RESET it in result?
+        // Or leave it open? Screen.write handles it per cell.
+        // But if we print `result` then newline, the style might leak?
+        // Generally `truncate` returns the string to be printed.
+        // Ideally we append RESET to result if style is active, and PREPEND style to remaining.
+        
+        return {
+            result: result + (currentStyle ? '\x1b[0m' : ''),
+            remaining: (currentStyle ? currentStyle : '') + remaining,
+            endStyle: currentStyle
+        };
     }
 }

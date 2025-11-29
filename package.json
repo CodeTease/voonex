@@ -4,6 +4,10 @@
   "description": "A zero-dependency Terminal UI Library for Node.js.",
   "license": "MIT",
   "author": "CodeTease",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CodeTease/voonex.git"
+  },
   "type": "commonjs",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
