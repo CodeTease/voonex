@@ -1,6 +1,6 @@
 {
   "name": "voonex",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A zero-dependency Terminal UI Library for Node.js.",
   "license": "MIT",
   "author": "CodeTease",

@@ -16,6 +16,15 @@ interface Cell {
     style: string;
 }
 
+// Z-Index Layers
+export const Layer = {
+    BACKGROUND: 0,
+    CONTENT: 10,
+    MODAL: 100,
+    TOOLTIP: 1000,
+    MAX: 9999
+};
+
 export class Screen {
     private static isAlternateBuffer = false;
     private static resizeTimeout: NodeJS.Timeout | null = null;
@@ -221,9 +230,9 @@ export class Screen {
     /**
      * Registers a root component for the rendering loop (Painter's Algorithm).
      * @param renderFn The function that renders the component
-     * @param zIndex Priority (higher draws on top)
+     * @param zIndex Priority (higher draws on top). Use Layer.* constants.
      */
-    static mount(renderFn: () => void, zIndex: number = 0) {
+    static mount(renderFn: () => void, zIndex: number = Layer.CONTENT) {
         this.renderRoots.push({ render: renderFn, zIndex });
         this.renderRoots.sort((a, b) => a.zIndex - b.zIndex);
         this.scheduleRender();
@@ -245,52 +254,20 @@ export class Screen {
     static flush() {
         // Painter's Algorithm Phase: Re-run all render functions if any exist
         // This clears the buffer and redraws everything from scratch (logically)
-        // But to keep performance, we might want to just let them draw over currentBuffer?
-        // User asked for: "1. Xóa Buffer ảo. 2. Duyệt qua danh sách...".
-        // If we have registered roots, we should follow this.
         if (this.renderRoots.length > 0) {
-            // We need to clear currentBuffer effectively?
-            // Or maybe just let them overwrite. If transparency is involved, clearing is safer.
-            // But clearing everything is expensive if we just diff later. 
-            // The Diff algorithm handles the "screen update" optimization. 
-            // The "Virtual Buffer" update needs to be correct.
-            // If we have layers, and top layer moves, we need to redraw bottom layer to see what's behind.
-            // So YES, we must clear currentBuffer (or reset it to background state) and redraw all layers.
-            
-            // Reset currentBuffer to empty/clean state WITHOUT affecting previousBuffer (screen state)
+            // Reset currentBuffer to empty/clean state
              for (let y = 0; y < this.height; y++) {
                 for (let x = 0; x < this.width; x++) {
                     this.currentBuffer[y][x] = { char: ' ', style: '' };
                 }
-                // We don't mark dirtyRows here blindly, we mark them if they CHANGE in the diff phase.
-                // Wait, dirtyRows optimization relies on us knowing which rows MIGHT have changed.
-                // If we clear everything, we potentially change everything.
-                // So we should mark all as dirty? 
-                // "Dirty" means "Virtual Buffer Row differs from Previous Buffer Row".
-                // Since we are rebuilding Virtual Buffer, we don't know yet.
-                // We should just run the diff loop on all rows?
-                // Or maybe we can track which rows are touched during render?
             }
             
-            // Render all layers
+            // Render all layers in sorted order
             for (const root of this.renderRoots) {
                 root.render();
             }
             
-            // Mark all rows as dirty for the Diff phase to check them?
-            // Since we rebuilt the buffer, any row could be different from previousBuffer.
-            // Optimization: Maybe only rows that were touched? 
-            // But 'write' marks dirtyRows.
-            // So if we clear buffer (resetting chars), we are effectively writing spaces.
-            // If we use 'clear()' method, it marks all dirty.
-            // Let's rely on 'write' marking dirtyRows.
-            // But we just did manual reset loop above.
-            // Let's check:
-            // If we reset manual loop, we are changing 'currentBuffer'.
-            // Previous buffer holds what is on screen.
-            // If we don't mark dirtyRows, flush() skips the row.
-            // If screen has text, and we cleared it to spaces, and didn't mark dirty, screen stays text. Bad.
-            // So yes, we should mark all dirty if we do a full clear-redraw cycle.
+            // Mark all rows as dirty because we rebuilt the buffer from scratch
             this.dirtyRows.fill(true);
         }
 
@@ -323,8 +300,6 @@ export class Screen {
                          // Close enough for right move
                          const diff = x - (lastX + 1);
                          if (diff > 0) output += `\x1b[${diff}C`; 
-                         // If diff is 0 (next char), we do nothing.
-                         // Actually if x = lastX + 2, diff is 1. We need \x1b[1C.
                     } else {
                          // Absolute Move
                          output += `\x1b[${y + 1};${x + 1}H`;
@@ -344,26 +319,6 @@ export class Screen {
                         const nextCell = this.currentBuffer[y][nextX];
                         const nextPrev = this.previousBuffer[y][nextX];
                         
-                        // We only batch if the NEXT cell also NEEDS update AND has SAME style
-                        // Actually, even if next cell DOES NOT need update, 
-                        // if we write over it with same content, it's fine (redundant write but saves cursor move).
-                        // BUT, if we write over it, we might overwrite something valid with something else? 
-                        // No, currentBuffer is truth.
-                        
-                        // Strategy: 
-                        // 1. Only batch consecutive CHANGED cells?
-                        // 2. Or batch consecutive cells regardless, as long as style matches, to avoid cursor jumps?
-                        // If we skip a cell (not changed), we have to move cursor.
-                        // Moving cursor costs bytes (e.g. \x1b[C is 3 bytes).
-                        // Writing a char is 1 byte.
-                        // So overwriting valid char is cheaper than skipping 1-2 chars.
-                        // But if we skip 10 chars, move is cheaper.
-                        
-                        // Let's stick to simple logic: Only batch if next cell ALSO needs update OR we just overwrite it anyway to jump gap?
-                        // The user asked for "Gộp chuỗi ký tự liên tiếp có cùng style".
-                        // If we strictly follow diff, we only write changed cells.
-                        // So let's look for consecutive CHANGED cells with same style.
-                        
                         if (nextCell.char !== nextPrev.char || nextCell.style !== nextPrev.style) {
                             if (nextCell.style === cell.style) {
                                 batch += nextCell.char;
@@ -375,10 +330,6 @@ export class Screen {
                                 break; // Style changed
                             }
                         } else {
-                            // Next cell is not changed.
-                            // Should we continue batching to bridge the gap?
-                            // If gap is small (1-2 chars), yes.
-                            // But that complicates logic. Let's stop batching.
                             break; 
                         }
                     }
@@ -395,8 +346,6 @@ export class Screen {
         }
 
         if (output.length > 0) {
-            // Reset style
-            // output += '\x1b[0m'; 
             process.stdout.write(output);
         }
     }

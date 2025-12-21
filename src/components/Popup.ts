@@ -1,5 +1,5 @@
 import { Box } from './Box';
-import { Screen } from '../core/Screen';
+import { Screen, Layer } from '../core/Screen';
 import { Styler } from '../core/Styler';
 import { ColorName } from '../core/Styler';
 import { Input } from '../core/Input';
@@ -38,8 +38,7 @@ export class Popup {
              Screen.write(x + 2, y + boxHeight - 1, Styler.style("[Press Enter]", 'dim'));
         };
 
-        const POPUP_Z_INDEX = 9999;
-        Screen.mount(renderPopup, POPUP_Z_INDEX);
+        Screen.mount(renderPopup, Layer.MODAL);
         
         const handler = (key: any) => {
             if (key.name === 'return' || key.name === 'enter' || key.name === 'escape') {
