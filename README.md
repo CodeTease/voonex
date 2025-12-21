@@ -6,7 +6,6 @@
 
 - **Zero Dependencies**: Lightweight and easy to audit.
 - **Double Buffering & Diffing**: Efficient rendering that eliminates flickering and minimizes I/O.
-- **Mouse Support**: Native support for clicking, dragging, and scrolling.
 - **Auto Layout**: Flexbox-like layout engine for responsive designs.
 - **Layer Management**: Z-index support for Modals, Tooltips, and Popups.
 - **Component System**: Built-in widgets like `Box`, `Menu`, `ProgressBar`, `Input`, `Table`, and more.
@@ -97,16 +96,6 @@ Input.onKey((key) => {
 });
 ```
 
-**Mouse:**
-Mouse tracking is automatically enabled when `Screen.enter()` is called if the terminal supports it.
-```typescript
-Input.onMouse((event) => {
-    if (event.action === 'mousedown' && event.button === 'left') {
-        console.log(`Clicked at ${event.x}, ${event.y}`);
-    }
-});
-```
-
 ### Layout Engine
 The `Layout` class helps calculate coordinates dynamically (Flexbox-style).
 
@@ -143,7 +132,7 @@ Box.render([
 ```
 
 ### Button
-Interactive button that supports click and enter.
+Interactive button that supports Enter.
 
 ```typescript
 const btn = new Button({

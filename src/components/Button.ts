@@ -1,7 +1,6 @@
 import { Styler, ColorName } from '../core/Styler';
 import { Screen } from '../core/Screen';
 import { Focusable } from '../core/Focus';
-import { Input, MouseEvent } from '../core/Input';
 import * as readline from 'readline';
 
 interface ButtonOptions {
@@ -19,13 +18,10 @@ export class Button implements Focusable {
     private options: ButtonOptions;
     private isFocused: boolean = false;
     private isPressed: boolean = false; // For visual feedback
-    private boundMouseHandler: (event: MouseEvent) => void;
 
     constructor(options: ButtonOptions) {
         this.id = options.id;
         this.options = { style: 'brackets', ...options };
-        this.boundMouseHandler = this.handleMouse.bind(this);
-        Input.onMouse(this.boundMouseHandler);
     }
 
     focus() {
@@ -43,21 +39,6 @@ export class Button implements Focusable {
         if (!this.isFocused) return false;
 
         if (key.name === 'return' || key.name === 'enter' || key.name === 'space') {
-            this.triggerPress();
-            return true;
-        }
-        return false;
-    }
-
-    handleMouse(event: MouseEvent): boolean {
-        if (event.action !== 'mousedown') return false;
-        
-        const { x, y, width, text } = this.options;
-        const actualWidth = width || (text.length + (this.options.style === 'brackets' ? 4 : 4));
-        
-        // Check collision
-        if (event.x >= x && event.x < x + actualWidth && event.y === y) {
-            this.focus(); // Auto focus on click
             this.triggerPress();
             return true;
         }

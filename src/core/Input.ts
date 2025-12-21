@@ -8,22 +8,8 @@ import { Screen } from './Screen';
 // Handler returns true to consume event (stop propagation)
 export type KeyHandler = (key: readline.Key) => boolean | void;
 
-export interface MouseEvent {
-    name: 'mouse';
-    x: number;
-    y: number;
-    button: 'left' | 'middle' | 'right' | 'release' | 'wheel-up' | 'wheel-down' | 'none';
-    action: 'mousedown' | 'mouseup' | 'mousemove';
-    ctrl: boolean;
-    meta: boolean;
-    shift: boolean;
-}
-
-export type MouseHandler = (event: MouseEvent) => boolean | void;
-
 export class Input {
     private static listeners: KeyHandler[] = [];
-    private static mouseListeners: MouseHandler[] = [];
     private static initialized = false;
 
     static init() {
@@ -33,78 +19,9 @@ export class Input {
         
         if (process.stdin.isTTY) {
             process.stdin.setRawMode(true);
-            // Enable mouse tracking: SGR mode (1006) + Move (1002) + Click (1000)
-            // REMOVED 1015h (URXVT) to avoid protocol conflict with 1006h (SGR)
-            process.stdout.write('\x1b[?1000h\x1b[?1002h\x1b[?1006h');
         }
 
         process.stdin.on('keypress', (str, key) => {
-            // Check for Mouse Event (SGR format: \x1b[<0;x;yM or m)
-            // SGR mouse encoding strictly starts with \x1b[<
-            if (key.sequence && key.sequence.startsWith('\x1b[<')) {
-                const match = key.sequence.match(/^\x1b\[<(\d+);(\d+);(\d+)([Mm])/);
-                if (match) {
-                    const code = parseInt(match[1], 10);
-                    const x = parseInt(match[2], 10) - 1; // 1-based to 0-based
-                    const y = parseInt(match[3], 10) - 1;
-                    const type = match[4]; // M = down, m = up
-
-                    const event: MouseEvent = {
-                        name: 'mouse',
-                        x, y,
-                        button: 'left', // Default
-                        action: type === 'M' ? 'mousedown' : 'mouseup',
-                        ctrl: false,
-                        meta: false,
-                        shift: false
-                    };
-
-                    // Decode 'code'
-                    // 0 = Left, 1 = Middle, 2 = Right
-                    // +4 = Shift, +8 = Meta, +16 = Ctrl
-                    // +32 = Motion (drag)
-                    // +64 = Scroll (wheel)
-
-                    let btnCode = code;
-                    
-                    // Modifiers
-                    if (btnCode >= 32) {
-                        // Drag or Scroll
-                        if (btnCode >= 64) {
-                            event.button = btnCode === 64 ? 'wheel-up' : 'wheel-down'; // This is simplified
-                            // Actually scroll is often 64 (up) or 65 (down).
-                            if (btnCode === 64) event.button = 'wheel-up';
-                            if (btnCode === 65) event.button = 'wheel-down';
-                        } else {
-                            // Drag
-                            event.action = 'mousemove';
-                            btnCode -= 32;
-                        }
-                    }
-
-                    if (event.button !== 'wheel-up' && event.button !== 'wheel-down') {
-                        if ((btnCode & 4) === 4) { event.shift = true; btnCode -= 4; }
-                        if ((btnCode & 8) === 8) { event.meta = true; btnCode -= 8; }
-                        if ((btnCode & 16) === 16) { event.ctrl = true; btnCode -= 16; }
-
-                        if (btnCode === 0) event.button = 'left';
-                        else if (btnCode === 1) event.button = 'middle';
-                        else if (btnCode === 2) event.button = 'right';
-                        else event.button = 'none'; // Maybe release
-                    }
-
-                    // Dispatch Mouse Event
-                    // Iterate backwards
-                    for (let i = this.mouseListeners.length - 1; i >= 0; i--) {
-                        const consumed = this.mouseListeners[i](event);
-                        if (consumed === true) break;
-                    }
-                    // Also trigger render
-                    Screen.scheduleRender();
-                    return;
-                }
-            }
-
             // Handle Ctrl+C globally to prevent trapping the user
             if (key.ctrl && key.name === 'c') {
                 Screen.leave(); // Restore terminal state
@@ -133,27 +50,15 @@ export class Input {
         this.listeners = this.listeners.filter(l => l !== handler);
     }
 
-    static onMouse(handler: MouseHandler) {
-        this.init();
-        this.mouseListeners.push(handler);
-    }
-
-    static offMouse(handler: MouseHandler) {
-        this.mouseListeners = this.mouseListeners.filter(l => l !== handler);
-    }
-
     /**
      * Stops listening and restores stdin.
      */
     static reset() {
         if (process.stdin.isTTY) {
             process.stdin.setRawMode(false);
-            // Disable mouse tracking
-            process.stdout.write('\x1b[?1000l\x1b[?1002l\x1b[?1006l');
         }
         process.stdin.pause();
         this.listeners = [];
-        this.mouseListeners = [];
         this.initialized = false;
     }
 }
