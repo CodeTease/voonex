@@ -1,6 +1,6 @@
 import { Screen, Button, Box, Input, Styler, Popup } from '../src';
 
-// 1. Enter Screen
+// 1. Enter Screen (Registers signal handlers automatically)
 Screen.enter();
 
 // 2. State
@@ -24,6 +24,7 @@ const btnExit = new Button({
     x: 25, y: 10,
     style: 'simple',
     onPress: () => {
+        // Safe exit
         Screen.leave();
         process.exit(0);
     }
@@ -63,8 +64,10 @@ Input.onMouse((event) => {
 
 // 7. Keyboard Escape
 Input.onKey(key => {
-    if (key.name === 'q' || (key.ctrl && key.name === 'c')) {
+    if (key.name === 'q') {
+        // Safe exit
         Screen.leave();
-        process.exit();
+        process.exit(0);
     }
+    // Ctrl+C is handled globally by Screen/Input or standard signals now
 });

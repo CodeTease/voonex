@@ -3,6 +3,7 @@
 // ==========================================
 
 import { Cursor } from './Cursor';
+import { Input } from './Input';
 
 export interface Rect {
     x: number;
@@ -63,6 +64,9 @@ export class Screen {
             this.resizeBuffers();
             this.scheduleRender();
         });
+
+        // Setup graceful shutdown signals
+        this.setupSignalHandlers();
     }
 
     /**
@@ -70,10 +74,26 @@ export class Screen {
      */
     static leave() {
         if (!this.isAlternateBuffer) return;
-        // Removed stopLoop()
+        
+        // Cleanup Input (disable mouse, reset raw mode)
+        Input.reset();
+
         Cursor.show();
         process.stdout.write('\x1b[?1049l'); // Leave alternate buffer
         this.isAlternateBuffer = false;
+    }
+
+    private static setupSignalHandlers() {
+        // Prevent multiple handlers if called multiple times
+        // But for static class, it's fine.
+        const cleanup = () => {
+            Screen.leave();
+            process.exit(0);
+        };
+
+        process.on('SIGINT', cleanup);
+        process.on('SIGTERM', cleanup);
+        // We can't catch SIGKILL
     }
 
     private static resizeBuffers() {

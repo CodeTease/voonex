@@ -33,22 +33,20 @@ export class Input {
         
         if (process.stdin.isTTY) {
             process.stdin.setRawMode(true);
-            // Enable mouse tracking: SGR mode (1006) + Move (1003) + Click (1000)
-            // We use 1002 (Cell Motion) or 1003 (All Motion). Let's use 1000 for clicks initially, 1003 if we want hover.
-            // Prompt says "click... select tab... scroll".
-            // 1000 sends on click/release.
-            // 1006 enables SGR (decimal) coordinates, avoiding issues with high coordinates.
-            process.stdout.write('\x1b[?1000h\x1b[?1002h\x1b[?1006h\x1b[?1015h');
+            // Enable mouse tracking: SGR mode (1006) + Move (1002) + Click (1000)
+            // REMOVED 1015h (URXVT) to avoid protocol conflict with 1006h (SGR)
+            process.stdout.write('\x1b[?1000h\x1b[?1002h\x1b[?1006h');
         }
 
         process.stdin.on('keypress', (str, key) => {
             // Check for Mouse Event (SGR format: \x1b[<0;x;yM or m)
+            // SGR mouse encoding strictly starts with \x1b[<
             if (key.sequence && key.sequence.startsWith('\x1b[<')) {
                 const match = key.sequence.match(/^\x1b\[<(\d+);(\d+);(\d+)([Mm])/);
                 if (match) {
-                    const code = parseInt(match[1]);
-                    const x = parseInt(match[2]) - 1; // 1-based to 0-based
-                    const y = parseInt(match[3]) - 1;
+                    const code = parseInt(match[1], 10);
+                    const x = parseInt(match[2], 10) - 1; // 1-based to 0-based
+                    const y = parseInt(match[3], 10) - 1;
                     const type = match[4]; // M = down, m = up
 
                     const event: MouseEvent = {
@@ -75,7 +73,6 @@ export class Input {
                         if (btnCode >= 64) {
                             event.button = btnCode === 64 ? 'wheel-up' : 'wheel-down'; // This is simplified
                             // Actually scroll is often 64 (up) or 65 (down).
-                            // Let's refine based on common SGR usage.
                             if (btnCode === 64) event.button = 'wheel-up';
                             if (btnCode === 65) event.button = 'wheel-down';
                         } else {
@@ -152,7 +149,7 @@ export class Input {
         if (process.stdin.isTTY) {
             process.stdin.setRawMode(false);
             // Disable mouse tracking
-            process.stdout.write('\x1b[?1000l\x1b[?1002l\x1b[?1006l\x1b[?1015l');
+            process.stdout.write('\x1b[?1000l\x1b[?1002l\x1b[?1006l');
         }
         process.stdin.pause();
         this.listeners = [];
