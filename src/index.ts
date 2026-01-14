@@ -11,6 +11,7 @@ export * from './core/Layout';
 export * from './core/Focus';
 export * from './core/Events';
 export * from './core/Component';
+export * from './core/Signal';
 
 export * from './components/Box';
 export * from './components/Menu';
