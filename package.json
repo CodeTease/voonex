@@ -1,6 +1,6 @@
 {
   "name": "voonex",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A zero-dependency Terminal UI Library for Node.js.",
   "license": "MIT",
   "author": "CodeTease",
@@ -17,9 +17,9 @@
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
-    "@types/node": "^20.4.2",
-    "ts-node": "10.9.2",
-    "typescript": "5.9.3"
+    "@types/node": "^22",
+    "ts-node": "^10",
+    "typescript": "^5"
   },
   "files": [
     "dist",

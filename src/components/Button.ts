@@ -1,6 +1,8 @@
 import { Styler, ColorName } from '../core/Styler';
 import { Screen } from '../core/Screen';
+import { Component } from '../core/Component';
 import { Focusable } from '../core/Focus';
+import { createSignal } from '../core/Signal';
 import * as readline from 'readline';
 
 interface ButtonOptions {
@@ -13,26 +15,37 @@ interface ButtonOptions {
     onPress: () => void;
 }
 
-export class Button implements Focusable {
+export class Button extends Component implements Focusable {
     public id: string;
+    public parent?: Focusable;
     private options: ButtonOptions;
-    private isFocused: boolean = false;
-    private isPressed: boolean = false; // For visual feedback
+    
+    // State managed by signals (implicit render on change)
+    private isFocusedSignal = createSignal(false);
+    private isPressedSignal = createSignal(false);
+
+    // Getters/Setters for convenience
+    private get isFocused() { return this.isFocusedSignal[0](); }
+    private set isFocused(v: boolean) { this.isFocusedSignal[1](v); }
+
+    private get isPressed() { return this.isPressedSignal[0](); }
+    private set isPressed(v: boolean) { this.isPressedSignal[1](v); }
 
     constructor(options: ButtonOptions) {
+        super();
         this.id = options.id;
         this.options = { style: 'brackets', ...options };
     }
 
     focus() {
         this.isFocused = true;
-        this.render(); // Ensure render called on focus
+        // No need to call render(), signal handles it
     }
 
     blur() {
         this.isFocused = false;
         this.isPressed = false;
-        this.render();
+        // No need to call render(), signal handles it
     }
 
     handleKey(key: readline.Key): boolean {
@@ -47,18 +60,20 @@ export class Button implements Focusable {
 
     private triggerPress() {
         this.isPressed = true;
-        this.render(); // Show pressed state visually
+        // render triggered by signal
 
         // Trigger action slightly delayed to show visual feedback
         setTimeout(() => {
             this.isPressed = false;
-            this.render();
             this.options.onPress();
         }, 150);
     }
 
     render() {
         const { x, y, text, width } = this.options;
+        
+        // Reading signals here (isFocused, isPressed) creates the dependency
+        // although in our simple system, any signal write triggers global render.
         
         let label = text;
         // Simple visual centering if width is provided
@@ -84,7 +99,6 @@ export class Button implements Focusable {
             }
             
             // Apply styles
-            // Note: Styler.style takes varargs, we need to handle types carefully or cast
             Screen.write(x, y, Styler.style(renderedText, color, 'bold', bgStyle as any));
         } else {
             // Normal State
